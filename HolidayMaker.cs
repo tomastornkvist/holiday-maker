@@ -11,88 +11,49 @@ class HolidayMaker(Database db)
         {
             char input = ConsoleUI.Menu("Main menu",
             [
-                ('1', "Customer menu"),
-                ('2', "Booking menu"),
+                ('A', "Add customer"),
+                ('B', "Add booking"),
+                ('S', "Show bookings"),
+                ('C', "Change booking"),
+                ('D', "Delete booking"),
+                ('R', "Restore booking"),
                 ('X', "Exit")
             ]);
 
             switch (input)
             {
-                case '1':
-                    CustomerMenu();
-                    break;
-
-                case '2':
-                    BookingMenu();
-                    break;
-
-                case 'X':
-                    return;
-            }
-        }
-    }
-
-    private void CustomerMenu()
-    {
-        while (true)
-        {
-            char input = ConsoleUI.Menu("Customer menu",
-            [
-                ('1', "Show customers"),
-                ('2', "Select customer"),
-                ('3', "Add customer"),
-                ('4', "Delete customer"),
-                ('X', "Return to previous menu")
-            ]);
-
-            switch (input)
-            {
-                case '1':
-                    ShowCustomers();
-                    break;
-
-                case '2':
-                    SelectCustomer();
-                    break;
-
-                case '3':
+                case 'A':
                     AddCustomer();
                     break;
 
-                case '4':
-                    DeleteCustomer();
-                    break;
-
-                case 'X':
-                    return;
-            }
-        }
-    }
-
-    private void BookingMenu()
-    {
-        while (true)
-        {
-            char input = ConsoleUI.Menu("Booking menu",
-            [
-                ('1', "Show bookings"),
-                ('2', "Add booking"),
-                ('3', "Delete booking"),
-                ('X', "Return to previous menu")
-            ]);
-
-            switch (input)
-            {
-                case '1':
-                    ShowBookings();
-                    break;
-
-                case '2':
+                case 'B':
+                    // Change AddBooking() to search for customer
+                    // and call AddCustomer() if not found.
+                    SelectCustomer();
+                    // If not found...
+                    AddCustomer();
+                    // Then...
                     AddBooking();
                     break;
 
-                case '3':
+                case 'S':
+                    // Implement ShowBookings().
+                    ShowBookings();
+                    break;
+
+                case 'C':
+                    // Implement ChangeBooking().
+                    // ChangeBooking();
+                    break;
+
+                case 'D':
+                    // Implement DeleteBooking().
                     DeleteBooking();
+                    break;
+
+                case 'R':
+                    // Implement RestoreBooking().
+                    // RestoreBooking();
                     break;
 
                 case 'X':
@@ -359,16 +320,23 @@ class HolidayMaker(Database db)
                 hasRestaurant,
                 orderBy);
 
+        if (availableRooms.Count < 1)
+        {
+            ConsoleUI.ShowMessage("There are no available rooms.");
+            ConsoleUI.ShowMessage("Please change your search criteria.");
+            return;
+        }
+
         // Show available rooms and select one
         string title =
-        "       Hotel                          Location             Room  Capacity Price      ";
+        "      Hotel                          Location              Room Capacity      Price";
         string[] choices = availableRooms.Select(
             r =>
-            $"|{r.hotel.Name,-30}|" +
-            $"{r.hotel.Location,-20}|" +
-            $"{r.room.RoomNumber,5}|" +
-            $"{r.room.Capacity,8}|" +
-            $"{r.room.PricePerNight,10}|").ToArray();
+            $"{r.hotel.Name,-30} " +
+            $"{r.hotel.Location,-20} " +
+            $"{r.room.RoomNumber,5} " +
+            $"{r.room.Capacity,8} " +
+            $"{r.room.PricePerNight,10}").ToArray();
         int i = ConsoleUI.UnknownLengthMenu(title, choices);
 
         // Book the room
