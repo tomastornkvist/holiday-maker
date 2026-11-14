@@ -1,12 +1,12 @@
 class Room
 {
-    ulong Id { get; }
-    float PricePerNight { get; }
-    byte Capacity { get; }
-    ulong HotelId { get; }
-    uint RoomNumber { get; }
+    public ulong Id { get; }
+    public decimal PricePerNight { get; }
+    public byte Capacity { get; }
+    public ulong HotelId { get; }
+    public uint RoomNumber { get; }
 
-    public Room(ulong id, float pricePerNight, byte capacity, ulong hotelId, uint roomNumber)
+    public Room(ulong id, decimal pricePerNight, byte capacity, ulong hotelId, uint roomNumber)
     {
         Id = id;
         PricePerNight = pricePerNight;
