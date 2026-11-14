@@ -2,9 +2,9 @@ using System.ComponentModel.Design;
 using System.Runtime.InteropServices;
 using MySqlConnector;
 
-class HolidayMaker(Database database)
+class HolidayMaker(Database db)
 {
-    private readonly Database _database = database;
+    private readonly Database _db = db;
     private Customer? _currentCustomer = null;
 
     public void Run()
@@ -108,41 +108,45 @@ class HolidayMaker(Database database)
 
     private List<Customer> GetCustomers()
     {
-        using MySqlDataReader reader = _database.ExecuteReader(Queries.SelectCustomers, []);
+        using var reader = _db.ExecuteReader(Queries.SelectCustomers, []);
 
         List<Customer> customers = [];
 
         while (reader.Read())
             customers.Add(
-                new Customer(
-                    reader.GetUInt64("customer_number"),
+                new(reader.GetUInt64("customer_number"),
                     reader.GetString("name"),
                     reader.GetString("address"),
                     reader.GetString("email"),
                     reader.GetString("phone")));
 
-        reader.DisposeAsync();
+        var task = reader.DisposeAsync();
+        while (!task.IsCompleted)
+            Thread.Sleep(10);
 
         return customers;
     }
 
     private Customer? GetCustomer(ulong customerNumber)
     {
-        using MySqlDataReader reader = _database.ExecuteReader(
-            Queries.SelectCustomer,
+        using var reader = _db.ExecuteReader(Queries.SelectCustomer,
             [("@customer_number", customerNumber)]);
 
+        Customer? customer = null;
+
         if (reader.Read())
-            return new Customer(
+            customer = new(
                 reader.GetUInt64("customer_number"),
                 reader.GetString("name"),
                 reader.GetString("address"),
                 reader.GetString("email"),
                 reader.GetString("phone"));
 
-        reader.DisposeAsync();
+        var task = reader.DisposeAsync();
+        while (!task.IsCompleted)
+            Thread.Sleep(10);
 
-        return null;
+        return customer;
     }
 
     private void ShowCustomers()
@@ -166,52 +170,51 @@ class HolidayMaker(Database database)
                 ConsoleUI.ShowMessage($"Selected customer {_currentCustomer}.");
         }
         else
-            ConsoleUI.ShowMessage($"Invalid customer number.");
+            ConsoleUI.ShowMessage("Invalid customer number.");
     }
 
     private void AddCustomer()
     {
         string? name = ConsoleUI.GetStringInput("Enter customer name: ");
-
-        if (name is not null)
+        if (name is null)
         {
-            string? address = ConsoleUI.GetStringInput("Enter customer address: ");
-
-            if (address is not null)
-            {
-                string? email = ConsoleUI.GetStringInput("Enter customer email: ");
-
-                if (email is not null)
-                {
-                    string? phone = ConsoleUI.GetStringInput("Enter customer phone: ");
-
-                    if (phone is not null)
-                    {
-                        (string, object)[] parameters =
-                        [
-                            ("@name", name),
-                            ("@address", address),
-                            ("@email", email),
-                            ("@phone", phone)
-                        ];
-
-                        if (_database.ExecuteNonQuery(Queries.InsertCustomer, parameters) == 1)
-                        {
-                            ConsoleUI.ShowMessage($"Added customer '{name}'.");
-                            return;
-                        }
-                    }
-                    else
-                        ConsoleUI.ShowMessage("Phone cannot be omitted. Customer was not added.");
-                }
-                else
-                    ConsoleUI.ShowMessage("Email cannot be omitted. Customer was not added.");
-            }
-            else
-                ConsoleUI.ShowMessage("Address cannot be omitted. Customer was not added.");
-        }
-        else
             ConsoleUI.ShowMessage("Name cannot be omitted. Customer was not added.");
+            return;
+        }
+
+        string? address = ConsoleUI.GetStringInput("Enter customer address: ");
+        if (address is null)
+        {
+            ConsoleUI.ShowMessage("Address cannot be omitted. Customer was not added.");
+            return;
+        }
+
+        string? email = ConsoleUI.GetStringInput("Enter customer email: ");
+        if (email is null)
+        {
+            ConsoleUI.ShowMessage("Email cannot be omitted. Customer was not added.");
+            return;
+        }
+
+        string? phone = ConsoleUI.GetStringInput("Enter customer phone: ");
+        if (phone is null)
+        {
+            ConsoleUI.ShowMessage("Phone cannot be omitted. Customer was not added.");
+            return;
+        }
+
+        (string, object)[] parameters =
+        [
+            ("@name", name),
+            ("@address", address),
+            ("@email", email),
+            ("@phone", phone)
+        ];
+
+        if (_db.ExecuteNonQuery(Queries.InsertCustomer, parameters) == 1)
+            ConsoleUI.ShowMessage($"Added customer '{name}'.");
+        else
+            ConsoleUI.ShowMessage($"Failed to add customer {name}.");
     }
 
     private void DeleteCustomer()
@@ -231,7 +234,7 @@ class HolidayMaker(Database database)
 
             (string, object)[] parameters = [("@customer_number", customerNumber)];
 
-            if (_database.ExecuteNonQuery(Queries.DeleteCustomer, parameters) == 1)
+            if (_db.ExecuteNonQuery(Queries.DeleteCustomer, parameters) == 1)
                 ConsoleUI.ShowMessage($"Customer ({customerNumber}) was deleted.");
             else
                 ConsoleUI.ShowMessage($"Failed to delete customer ({customerNumber}).");
@@ -254,11 +257,15 @@ class HolidayMaker(Database database)
 
     private void AddBooking()
     {
+        Booking booking = new();
+
         if (_currentCustomer is null)
         {
             ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
             return;
         }
+
+        booking.CustomerNumber = _currentCustomer.CustomerNumber;
 
         // Select location
         List<(char, string)> locations = [];
@@ -279,21 +286,33 @@ class HolidayMaker(Database database)
         // Select dates
         DateOnly startDate, endDate;
 
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput("Enter start date: "), out startDate))
+        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
+            "Enter start date: "), out startDate))
         {
             ConsoleUI.ShowMessage("Invalid start date.");
             return;
         }
 
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput("Enter end date: "), out endDate))
+        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
+            "Enter end date: "), out endDate))
         {
             ConsoleUI.ShowMessage("Invalid end date.");
             return;
         }
 
+        booking.StartDate = startDate;
+        booking.EndDate = endDate;
+
         // Select number of people
+        byte occupants;
+        if (byte.TryParse(ConsoleUI.GetStringInput(
+            "How many people will you be: "), out occupants))
+        {
+            booking.Occupants = occupants;
+        }
 
         // Find available rooms
+
         // Select a room
         // Book the room
     }
@@ -305,7 +324,7 @@ class HolidayMaker(Database database)
 
     private string[] GetLocations()
     {
-        MySqlDataReader reader = _database.ExecuteReader(Queries.FindLocations, []);
+        MySqlDataReader reader = _db.ExecuteReader(Queries.FindLocations, []);
         List<string> locations = [];
 
         while (reader.Read())
