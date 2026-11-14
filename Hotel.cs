@@ -1,11 +1,12 @@
 class Hotel
 {
-    ulong Id { get; }
-    string Name { get; }
-    string Location { get; }
-    uint DistanceToBeach { get; }
-    uint DistanceToCity { get; }
-    float Rating { get; }
+    public ulong Id { get; }
+    public string Name { get; }
+    public string Location { get; }
+    public uint DistanceToBeach { get; }
+    public uint DistanceToCity { get; }
+    public float Rating { get; }
+    public List<Room> Rooms { get; } = [];
 
     public Hotel(ulong id, string name, string location, uint distanceToBeach, uint distanceToCity, float rating)
     {
@@ -15,5 +16,10 @@ class Hotel
         DistanceToBeach = distanceToBeach;
         DistanceToCity = distanceToCity;
         Rating = rating;
+    }
+
+    public override string ToString()
+    {
+        return $"Name: {Name}, Location: {Location}, DistanceToBeach: {DistanceToBeach}m, DistanceToCity: {DistanceToCity}m, Rating: {Rating}";
     }
 }

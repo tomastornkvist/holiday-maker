@@ -17,6 +17,6 @@ class Customer
 
     public override string ToString()
     {
-        return $"({CustomerNumber}, {Name}, {Address}, {Email}, {Phone})";
+        return $"CustomerNumber: {CustomerNumber}, Name: {Name}, Address: {Address}, Email: {Email}, Phone: {Phone}";
     }
 }
