@@ -1,3 +1,7 @@
+CREATE DATABASE holiday_maker;
+
+USE holiday_maker;
+
 CREATE TABLE `hotels`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(100) NOT NULL,
@@ -31,7 +35,7 @@ CREATE TABLE `bookings`(
     `checkin_date` DATE NOT NULL,
     `checkout_date` DATE NOT NULL,
     `total_price` DECIMAL(8, 2) NOT NULL,
-    `status` ENUM('available', 'booked', 'cancelled') NOT NULL DEFAULT 'cancelled',
+    `cancelled` BOOLEAN NOT NULL DEFAULT FALSE,
     `number_of_occupants` TINYINT NOT NULL
 );
 CREATE TABLE `amenities`(

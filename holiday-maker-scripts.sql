@@ -37,7 +37,7 @@ WHERE h.location = @location
         SELECT 1
         FROM bookings b
         WHERE b.room_id = r.id
-          AND b.status <> 'cancelled'
+          AND b.cancelled = FALSE
           AND b.checkin_date < @check_out_date
           AND b.checkout_date > @check_in_date
         )

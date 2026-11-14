@@ -1,18 +1,31 @@
-enum BookingStatus
-{
-    Available,
-    Booked,
-    Cancelled
-}
-
 class Booking
 {
     public ulong BookingNumber { get; }
-    public ulong CustomerNumber { get; set; }
-    public ulong RoomId { get; set; }
-    public DateOnly StartDate { get; set; }
-    public DateOnly EndDate { get; set; }
-    public float TotalPrice { get; set; }
-    public BookingStatus Status { get; set; }
-    public byte Occupants { get; set; }
+    public ulong CustomerNumber { get; }
+    public ulong RoomId { get; }
+    public DateOnly CheckinDate { get; }
+    public DateOnly CheckoutDate { get; }
+    public decimal TotalPrice { get; }
+    public bool Cancelled { get; }
+    public byte Occupants { get; }
+
+    public Booking(
+        ulong bookingNumber,
+        ulong customerNumber,
+        ulong roomId,
+        DateOnly checkinDate,
+        DateOnly checkoutDate,
+        decimal totalPrice,
+        bool cancelled,
+        byte occupants)
+    {
+        BookingNumber = bookingNumber;
+        CustomerNumber = customerNumber;
+        RoomId = roomId;
+        CheckinDate = checkinDate;
+        CheckoutDate = checkoutDate;
+        TotalPrice = totalPrice;
+        Cancelled = cancelled;
+        Occupants = occupants;
+    }
 }
