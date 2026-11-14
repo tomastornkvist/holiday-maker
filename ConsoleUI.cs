@@ -3,7 +3,6 @@ static class ConsoleUI
     // Show a list.
     public static void ShowList(string title, string[] lines)
     {
-        Console.WriteLine();
         Console.WriteLine(title);
         Console.WriteLine(new string('-', title.Length));
 
@@ -28,13 +27,29 @@ static class ConsoleUI
         }
     }
 
+    // Show a menu and get the users response.
+    public static int UnknownLengthMenu(string title, string[] choices)
+    {
+        while (true)
+        {
+            int i = 1;
+            ShowList(title, choices.Select(c => $"{i++,4}. {c}").ToArray());
+            Console.Write("Make your choice: ");
+
+            if (int.TryParse(Console.ReadLine(), out int input))
+            {
+                if (input > 0 && input <= choices.Length)
+                    return input;
+            }
+        }
+    }
+
     // Show a message and get a reply to it.
     public static string? GetStringInput(string message)
     {
         Console.Write(message);
 
         string? input = Console.ReadLine();
-        Console.WriteLine();
 
         return string.IsNullOrWhiteSpace(input) ? null : input.Trim();
     }
