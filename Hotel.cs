@@ -5,10 +5,9 @@ class Hotel
     public string Location { get; }
     public uint DistanceToBeach { get; }
     public uint DistanceToCity { get; }
-    public float Rating { get; }
-    public List<Room> Rooms { get; } = [];
+    public decimal Rating { get; }
 
-    public Hotel(ulong id, string name, string location, uint distanceToBeach, uint distanceToCity, float rating)
+    public Hotel(ulong id, string name, string location, uint distanceToBeach, uint distanceToCity, decimal rating)
     {
         Id = id;
         Name = name;
