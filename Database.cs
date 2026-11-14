@@ -13,6 +13,7 @@ class Database
         Connection.Open();
     }
 
+    // Simplify select queries.
     public MySqlDataReader ExecuteReader(string sql, (string, object)[] parameters)
     {
         using MySqlCommand command = new(sql, Connection);
@@ -21,10 +22,10 @@ class Database
             command.Parameters.AddWithValue(name, value);
         command.Prepare();
 
-        MySqlDataReader reader = command.ExecuteReader();
-        return reader;
+        return command.ExecuteReader();
     }
 
+    // Simplify non-select queries.
     public int ExecuteNonQuery(string sql, (string, object)[] parameters)
     {
         using MySqlCommand command = new(sql, Connection);
