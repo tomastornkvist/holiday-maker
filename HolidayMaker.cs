@@ -1,6 +1,4 @@
-using System.ComponentModel.Design;
-using System.Runtime.InteropServices;
-using MySqlConnector;
+using System.Text;
 
 class HolidayMaker(Database db)
 {
@@ -244,29 +242,23 @@ class HolidayMaker(Database db)
             return;
         }
 
-        // Add code here...
+
     }
 
     private void AddBooking()
     {
-        Booking booking = new();
-
         if (_currentCustomer is null)
         {
             ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
             return;
         }
 
-        booking.CustomerNumber = _currentCustomer.CustomerNumber;
-
         // Select location
         List<(char, string)> locations = [];
         char c = 'A';
         foreach (string location in GetLocations())
             locations.Add((c++, location));
-
         locations.Add(('X', "Cancel"));
-
         c = ConsoleUI.Menu("Locations", locations.ToArray());
 
         if (c == 'X')
@@ -275,38 +267,133 @@ class HolidayMaker(Database db)
         string selectedLocation = locations.Find(l => l.Item1 == c).Item2;
         ConsoleUI.ShowMessage($"Location: {selectedLocation}");
 
-        // Select dates
-        DateOnly startDate, endDate;
-
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
-            "Enter start date: "), out startDate))
-        {
-            ConsoleUI.ShowMessage("Invalid start date.");
-            return;
-        }
-
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
-            "Enter end date: "), out endDate))
-        {
-            ConsoleUI.ShowMessage("Invalid end date.");
-            return;
-        }
-
-        booking.StartDate = startDate;
-        booking.EndDate = endDate;
-
         // Select number of people
-        byte occupants;
-        if (byte.TryParse(ConsoleUI.GetStringInput(
-            "How many people will you be: "), out occupants))
+        if (!byte.TryParse(ConsoleUI.GetStringInput("How many people will you be (1): "), out byte occupants))
+            occupants = 1;
+
+        // Select dates
+        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
+            "Enter checkin date: "), out DateOnly checkinDate))
         {
-            booking.Occupants = occupants;
+            ConsoleUI.ShowMessage("Invalid checkin date.");
+            return;
+        }
+        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
+            "Enter checkout date: "), out DateOnly checkoutDate))
+        {
+            ConsoleUI.ShowMessage("Invalid checkout date.");
+            return;
+        }
+        if (checkoutDate <= checkinDate)
+        {
+            ConsoleUI.ShowMessage($"Checkout date ({checkoutDate}) must be after checkin date ({checkinDate}).");
+            return;
+        }
+
+        // Select distance to the beach
+        if (!uint.TryParse(ConsoleUI.GetStringInput(
+            "Select maximum distance to the beach (0 or no entry ignores it): "),
+            out uint distanceToBeach))
+        {
+            distanceToBeach = 0;
+        }
+
+        // Select distance to the city
+        if (!uint.TryParse(ConsoleUI.GetStringInput(
+            "Select maximum distance to the city centre (0 or no entry ignores it): "),
+            out uint distanceToCity))
+        {
+            distanceToCity = 0;
+        }
+
+        // Should the hotel have a pool?
+        bool hasPool = false;
+        string? input = ConsoleUI.GetStringInput(
+            "Should the hotel have a pool? (Yes/[No]): ");
+
+        if (input is not null && input.ToUpper()[0] == 'Y')
+            hasPool = true;
+
+        // Should the hotel have a restaurant?
+        bool hasRestaurant = false;
+        input = ConsoleUI.GetStringInput(
+            "Should the hotel have a restaurant? (Yes/[No]): ");
+
+        if (input is not null && input.ToUpper()[0] == 'Y')
+            hasRestaurant = true;
+
+        // How should the results be sorted?
+        c = ConsoleUI.Menu("How do you want the results sorted?",
+        [
+            ('S', "Standard (City, hotel name and room number)"),
+            ('P', "Price/night"),
+            ('R', "Hotel rating")
+        ]);
+
+        Queries.OrderByFindAvailableRooms orderBy;
+        switch (c)
+        {
+            case 'P':
+                orderBy = Queries.OrderByFindAvailableRooms.PricePerNight;
+                break;
+
+            case 'R':
+                orderBy = Queries.OrderByFindAvailableRooms.Rating;
+                break;
+
+            default:
+                orderBy = Queries.OrderByFindAvailableRooms.Standard;
+                break;
         }
 
         // Find available rooms
+        List<(Hotel hotel, Room room)> availableRooms =
+            FindAvailableRooms(
+                selectedLocation,
+                occupants,
+                checkinDate,
+                checkoutDate,
+                distanceToBeach,
+                distanceToCity,
+                hasPool,
+                hasRestaurant,
+                orderBy);
 
-        // Select a room
+        // Show available rooms and select one
+        string title =
+        "       Hotel                          Location             Room  Capacity Price      ";
+        string[] choices = availableRooms.Select(
+            r =>
+            $"|{r.hotel.Name,-30}|" +
+            $"{r.hotel.Location,-20}|" +
+            $"{r.room.RoomNumber,5}|" +
+            $"{r.room.Capacity,8}|" +
+            $"{r.room.PricePerNight,10}|").ToArray();
+        int i = ConsoleUI.UnknownLengthMenu(title, choices);
+
         // Book the room
+        i--;
+        Hotel hotel = availableRooms[i].hotel;
+        Room room = availableRooms[i].room;
+
+        (string, object)[] parameters =
+        [
+            ("@customer_number", _currentCustomer.CustomerNumber),
+            ("@room_id", room.Id),
+            ("@checkin_date", checkinDate),
+            ("@checkout_date", checkoutDate),
+            ("@total_price", room.PricePerNight * (checkoutDate.DayNumber - checkinDate.DayNumber)),
+            ("@cancelled", false),
+            ("@number_of_occupants", occupants)
+        ];
+
+        if (_db.ExecuteNonQuery(Queries.InsertBooking, parameters) == 1)
+            ConsoleUI.ShowMessage(
+                @$"Added booking for {_currentCustomer.Name},
+                at {hotel.Name} in {hotel.Location}
+                from {checkinDate} to {checkoutDate}.");
+        else
+            ConsoleUI.ShowMessage($"Failed to add booking for {_currentCustomer.Name}");
     }
 
     private void DeleteBooking()
@@ -316,12 +403,90 @@ class HolidayMaker(Database db)
 
     private string[] GetLocations()
     {
-        MySqlDataReader reader = _db.ExecuteReader(Queries.FindLocations, []);
+        using var reader = _db.ExecuteReader(Queries.FindLocations, []);
         List<string> locations = [];
 
         while (reader.Read())
             locations.Add(reader.GetString(0));
 
         return locations.ToArray();
+    }
+
+    private List<(Hotel hotel, Room room)> FindAvailableRooms(
+        string location,
+        byte occupants,
+        DateOnly check_in_date,
+        DateOnly check_out_date,
+        uint distanceToBeach,
+        uint distanceToCity,
+        bool hasPool,
+        bool hasRestaurant,
+        Queries.OrderByFindAvailableRooms orderBy)
+    {
+        List<(Hotel hotel, Room room)> rooms = [];
+        StringBuilder sql = new(Queries.FindAvailableRoomsSelectFrom);
+
+        List<(string, object)> parameters =
+        [
+            ("@location", location),
+            ("@capacity", occupants),
+            ("@check_in_date", check_in_date),
+            ("@check_out_date", check_out_date)
+        ];
+
+        if (distanceToBeach > 0)
+        {
+            parameters.Add(("@distance_to_beach", distanceToBeach));
+            sql.Append(Queries.FindAvailableRoomsAndDistanceToBeach);
+        }
+
+        if (distanceToCity > 0)
+        {
+            parameters.Add(("@distance_to_city", distanceToCity));
+            sql.Append(Queries.FindAvailableRoomsAndDistanceToCity);
+        }
+
+        if (hasPool)
+            sql.Append(Queries.FindAvailableRoomsHasPool);
+
+        if (hasRestaurant)
+            sql.Append(Queries.FindAvailableRoomsHasRestaurant);
+
+        sql.Append(Queries.FindAvailableRoomsWhere);
+
+        switch (orderBy)
+        {
+            case Queries.OrderByFindAvailableRooms.PricePerNight:
+                sql.Append(Queries.FindAvailableRoomsOrderByPricePerNight);
+                break;
+
+            case Queries.OrderByFindAvailableRooms.Rating:
+                sql.Append(Queries.FindAvailableRoomsOrderByRating);
+                break;
+
+            default:
+                sql.Append(Queries.FindAvailableRoomsOrderByStandard);
+                break;
+        }
+
+        using var reader = _db.ExecuteReader(sql.ToString(), parameters.ToArray());
+
+        while (reader.Read())
+        {
+            rooms.Add(
+                new(new(reader.GetUInt64("hotel_id"),
+                        reader.GetString("name"),
+                        reader.GetString("location"),
+                        reader.GetUInt32("distance_to_beach"),
+                        reader.GetUInt32("distance_to_city"),
+                        reader.GetDecimal("rating")),
+                    new(reader.GetUInt64("room_id"),
+                        reader.GetDecimal("price_per_night"),
+                        reader.GetByte("capacity"),
+                        reader.GetUInt64("hotel_id"),
+                        reader.GetUInt32("room_number"))
+                ));
+        }
+        return rooms;
     }
 }
