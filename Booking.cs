@@ -8,11 +8,11 @@ enum BookingStatus
 class Booking
 {
     public ulong BookingNumber { get; }
-    public ulong CustomerNumber { get; }
-    public ulong RoomId { get; }
-    public DateOnly StartDate { get; }
-    public DateOnly EndDate { get; }
-    public float TotalPrice { get; }
-    public BookingStatus Status { get; }
-    public byte Occupants { get; }
+    public ulong CustomerNumber { get; set; }
+    public ulong RoomId { get; set; }
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public float TotalPrice { get; set; }
+    public BookingStatus Status { get; set; }
+    public byte Occupants { get; set; }
 }
