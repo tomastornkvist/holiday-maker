@@ -28,8 +28,8 @@ CREATE TABLE `bookings`(
     `booking_number` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `customer_number` BIGINT UNSIGNED NOT NULL,
     `room_id` BIGINT UNSIGNED NOT NULL,
-    `start_date` DATE NOT NULL,
-    `end_date` DATE NOT NULL,
+    `checkin_date` DATE NOT NULL,
+    `checkout_date` DATE NOT NULL,
     `total_price` DECIMAL(8, 2) NOT NULL,
     `status` ENUM('available', 'booked', 'cancelled') NOT NULL DEFAULT 'cancelled',
     `number_of_occupants` TINYINT NOT NULL
