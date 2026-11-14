@@ -120,10 +120,6 @@ class HolidayMaker(Database db)
                     reader.GetString("email"),
                     reader.GetString("phone")));
 
-        var task = reader.DisposeAsync();
-        while (!task.IsCompleted)
-            Thread.Sleep(10);
-
         return customers;
     }
 
@@ -141,10 +137,6 @@ class HolidayMaker(Database db)
                 reader.GetString("address"),
                 reader.GetString("email"),
                 reader.GetString("phone"));
-
-        var task = reader.DisposeAsync();
-        while (!task.IsCompleted)
-            Thread.Sleep(10);
 
         return customer;
     }
@@ -329,8 +321,6 @@ class HolidayMaker(Database db)
 
         while (reader.Read())
             locations.Add(reader.GetString(0));
-
-        reader.DisposeAsync();
 
         return locations.ToArray();
     }
