@@ -46,3 +46,25 @@ WHERE h.location = @location
 ORDER BY h.location, h.name, r.room_number
 #ORDER BY r.price_per_night
 #ORDER BY h.rating
+
+# Select bookings
+SET @customer_number = 3;
+
+SELECT
+    b.*,
+    r.id AS room_id,
+    r.price_per_night,
+    r.capacity,
+    r.hotel_id,
+    r.room_number,
+    h.id AS hotel_id,
+    h.name,
+    h.location,
+    h.distance_to_beach,
+    h.distance_to_city,
+    h.rating
+FROM bookings b
+    JOIN rooms r ON b.room_id = r.id
+    JOIN hotels h ON r.hotel_id = h.id
+WHERE b.customer_number = @customer_number
+ORDER BY b.checkin_date;

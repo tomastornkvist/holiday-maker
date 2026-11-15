@@ -39,10 +39,6 @@
                     break;
 
                 case 'B':
-                    // Change AddBooking() to search for customer
-                    // and call AddCustomer() if not found.
-                    // If not found...
-                    // Then...
                     AddBooking();
                     break;
 
@@ -53,7 +49,7 @@
 
                 case 'C':
                     // Implement ChangeBooking().
-                    // ChangeBooking();
+                    ChangeBooking();
                     break;
 
                 case 'D':
@@ -63,7 +59,7 @@
 
                 case 'R':
                     // Implement RestoreBooking().
-                    // RestoreBooking();
+                    RestoreBooking();
                     break;
 
                 case 'X':
@@ -314,16 +310,53 @@
 
     private void ShowBookings()
     {
+        _currentCustomer = SelectCustomer();
+
         if (_currentCustomer is null)
         {
-            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
+            ConsoleUI.ShowMessage("No customer selected.");
             return;
         }
 
-        // Add some code here...
+        List<(Booking booking, Room room, Hotel hotel)> bookings =
+        _hm.GetBookings(_currentCustomer.CustomerNumber);
+
+        string title =
+            "Booking " +
+            "Hotel                          " +
+            "Location             " +
+            "Room  " +
+            "Checkin    " +
+            "Checkout   " +
+            "Occupants " +
+            "Price     ";
+        string[] bookingRows = bookings.Select(
+            b =>
+            $"{b.booking.BookingNumber,7} " +
+            $"{b.hotel.Name,-30} " +
+            $"{b.hotel.Location,-20} " +
+            $"{b.room.RoomNumber,5} " +
+            $"{b.booking.CheckinDate} " +
+            $"{b.booking.CheckoutDate} " +
+            $"{b.booking.Occupants,9} " +
+            $"{b.booking.TotalPrice,10}").ToArray();
+
+        ConsoleUI.ShowMessage(
+            $"Bookings for {_currentCustomer.Name}");
+        ConsoleUI.ShowList(title, bookingRows);
+    }
+
+    private void ChangeBooking()
+    {
+
     }
 
     private void RemoveBooking()
+    {
+
+    }
+
+    private void RestoreBooking()
     {
 
     }

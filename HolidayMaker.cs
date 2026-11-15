@@ -69,30 +69,6 @@ class HolidayMaker(Database db)
         return false;
     }
 
-    // private void DeleteCustomer()
-    // {
-    //     ShowCustomers();
-
-    //     if (ulong.TryParse(
-    //         ConsoleUI.GetStringInput(
-    //             "Enter the customer number of the customer you want to delete: "),
-    //         out ulong customerNumber))
-    //     {
-    //         if (GetCustomer(customerNumber) is null)
-    //         {
-    //             ConsoleUI.ShowMessage($"Customer ({customerNumber}) doesn't exist.");
-    //             return;
-    //         }
-
-    //         (string, object)[] parameters = [("@customer_number", customerNumber)];
-
-    //         if (_db.ExecuteNonQuery(Queries.DeleteCustomer, parameters) == 1)
-    //             ConsoleUI.ShowMessage($"Customer ({customerNumber}) was deleted.");
-    //         else
-    //             ConsoleUI.ShowMessage($"Failed to delete customer ({customerNumber}).");
-    //     }
-    // }
-
     // ---------------------------------------------------------------------------------------
     // Booking functions
 
@@ -174,12 +150,15 @@ class HolidayMaker(Database db)
         while (reader.Read())
         {
             rooms.Add(
-                new(new(reader.GetUInt64("hotel_id"),
+                new(
+                    // Hotel
+                    new(reader.GetUInt64("hotel_id"),
                         reader.GetString("name"),
                         reader.GetString("location"),
                         reader.GetUInt32("distance_to_beach"),
                         reader.GetUInt32("distance_to_city"),
                         reader.GetDecimal("rating")),
+                    // Room
                     new(reader.GetUInt64("room_id"),
                         reader.GetDecimal("price_per_night"),
                         reader.GetByte("capacity"),
@@ -204,5 +183,48 @@ class HolidayMaker(Database db)
         ];
 
         return _db.ExecuteNonQuery(Queries.InsertBooking, parameters) == 1;
+    }
+
+    public List<(Booking, Room, Hotel)> GetBookings(ulong customerNumber)
+    {
+        List<(Booking, Room, Hotel)> bookings = [];
+
+        using var reader = _db.ExecuteReader(
+            Queries.SelectBookings,
+            [("@customer_number", customerNumber)]);
+
+        while (reader.Read())
+        {
+            bookings.Add
+            (
+                new(
+                    // Booking
+                    new(reader.GetUInt64("booking_number"),
+                        reader.GetUInt64("customer_number"),
+                        reader.GetUInt64("room_id"),
+                        reader.GetDateOnly("checkin_date"),
+                        reader.GetDateOnly("checkout_date"),
+                        reader.GetDecimal("total_price"),
+                        reader.GetBoolean("cancelled"),
+                        reader.GetByte("number_of_occupants")),
+
+                    // Room
+                    new(reader.GetUInt64("room_id"),
+                        reader.GetDecimal("price_per_night"),
+                        reader.GetByte("capacity"),
+                        reader.GetUInt64("hotel_id"),
+                        reader.GetUInt32("room_number")),
+
+                    // Hotel
+                    new(reader.GetUInt64("hotel_id"),
+                        reader.GetString("name"),
+                        reader.GetString("location"),
+                        reader.GetUInt32("distance_to_beach"),
+                        reader.GetUInt32("distance_to_city"),
+                        reader.GetDecimal("rating"))
+                ));
+        }
+
+        return bookings;
     }
 }

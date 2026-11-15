@@ -28,7 +28,7 @@ CREATE TABLE `rooms`(
     `price_per_night` DECIMAL(8, 2) NOT NULL,
     `capacity` TINYINT UNSIGNED NOT NULL,
     `hotel_id` BIGINT UNSIGNED NOT NULL,
-    `room_number` INT NOT NULL
+    `room_number` INT UNSIGNED NOT NULL
 );
 CREATE TABLE `bookings`(
     `booking_number` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -38,7 +38,7 @@ CREATE TABLE `bookings`(
     `checkout_date` DATE NOT NULL,
     `total_price` DECIMAL(8, 2) NOT NULL,
     `cancelled` BOOLEAN NOT NULL DEFAULT FALSE,
-    `number_of_occupants` TINYINT NOT NULL
+    `number_of_occupants` TINYINT UNSIGNED NOT NULL
 );
 CREATE TABLE `amenities`(
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,

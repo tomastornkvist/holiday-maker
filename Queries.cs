@@ -58,6 +58,26 @@ static class Queries
     public const string FindAvailableRoomsOrderByRating =
     " ORDER BY h.rating";
 
+    public const string SelectBookings =
+    @"SELECT
+        b.*,
+        r.id AS room_id,
+        r.price_per_night,
+        r.capacity,
+        r.hotel_id,
+        r.room_number,
+        h.id AS hotel_id,
+        h.name,
+        h.location,
+        h.distance_to_beach,
+        h.distance_to_city,
+        h.rating
+    FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        JOIN hotels h ON r.hotel_id = h.id
+    WHERE b.customer_number = @customer_number
+    ORDER BY b.checkin_date";
+
     // ----------------------------------------------------------------------------------
     // INSERT queries
     public const string InsertCustomer =
@@ -81,9 +101,4 @@ static class Queries
         @total_price,
         @cancelled,
         @number_of_occupants)";
-
-    // ----------------------------------------------------------------------------------
-    // DELETE queries
-    // public const string DeleteCustomer =
-    // "DELETE FROM customers WHERE customer_number = @customer_number";
 }
