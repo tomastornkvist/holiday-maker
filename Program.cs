@@ -41,9 +41,7 @@
                 case 'B':
                     // Change AddBooking() to search for customer
                     // and call AddCustomer() if not found.
-                    SelectCustomer();
                     // If not found...
-                    _currentCustomer = AddCustomer();
                     // Then...
                     AddBooking();
                     break;
@@ -121,41 +119,43 @@
             customer => customer.ToString()).ToArray());
     }
 
-    private void SelectCustomer()
+    private Customer? SelectCustomer()
     {
+        Customer? customer = null;
+
         ShowCustomers();
 
         if (ulong.TryParse(
             ConsoleUI.GetStringInput("Select customer: "),
             out ulong customerNumber))
         {
-            _currentCustomer = _hm.GetCustomer(customerNumber);
-            if (_currentCustomer is null)
-                ConsoleUI.ShowMessage($"Customer ({customerNumber}) doesn't exist. No customer selected.");
-            else
-                ConsoleUI.ShowMessage($"Selected customer {_currentCustomer}.");
-        }
-        else
-            ConsoleUI.ShowMessage("Invalid customer number.");
-    }
-
-    private void ShowBookings()
-    {
-        if (_currentCustomer is null)
-        {
-            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
-            return;
+            customer = _hm.GetCustomer(customerNumber);
         }
 
-        // Add some code here...
+        return customer;
     }
 
     private void AddBooking()
     {
+        string? input;
+
+        _currentCustomer = SelectCustomer();
+
         if (_currentCustomer is null)
         {
-            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
-            return;
+            ConsoleUI.ShowMessage("No customer selected.");
+            input = ConsoleUI.GetStringInput("Do you want to add a new customer? (Y/[N]): ");
+
+            if (input is null || input.ToUpper()[0] != 'Y')
+                return;
+
+            _currentCustomer = AddCustomer();
+
+            if (_currentCustomer is null)
+            {
+                ConsoleUI.ShowMessage("No customer selected. No booking added.");
+                return;
+            }
         }
 
         // Select location
@@ -217,7 +217,7 @@
 
         // Should the hotel have a pool?
         bool hasPool = false;
-        string? input = ConsoleUI.GetStringInput(
+        input = ConsoleUI.GetStringInput(
             "Should the hotel have a pool? (Yes/[No]): ");
 
         if (input is not null && input.ToUpper()[0] == 'Y')
@@ -234,7 +234,7 @@
         // How should the results be sorted?
         c = ConsoleUI.Menu("How do you want the results sorted?",
         [
-            ('S', "Standard (City, hotel name and room number)"),
+            ('S', "Standard (Location, hotel name and room number)"),
             ('P', "Price/night"),
             ('R', "Hotel rating")
         ]);
@@ -310,6 +310,17 @@
                 from {checkinDate} to {checkoutDate}.");
         else
             ConsoleUI.ShowMessage($"Failed to add booking for {_currentCustomer.Name}");
+    }
+
+    private void ShowBookings()
+    {
+        if (_currentCustomer is null)
+        {
+            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
+            return;
+        }
+
+        // Add some code here...
     }
 
     private void RemoveBooking()
