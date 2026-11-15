@@ -3,69 +3,11 @@ using System.Text;
 class HolidayMaker(Database db)
 {
     private readonly Database _db = db;
-    private Customer? _currentCustomer = null;
-
-    public void Run()
-    {
-        while (true)
-        {
-            char input = ConsoleUI.Menu("Main menu",
-            [
-                ('A', "Add customer"),
-                ('B', "Add booking"),
-                ('S', "Show bookings"),
-                ('C', "Change booking"),
-                ('D', "Delete booking"),
-                ('R', "Restore booking"),
-                ('X', "Exit")
-            ]);
-
-            switch (input)
-            {
-                case 'A':
-                    AddCustomer();
-                    break;
-
-                case 'B':
-                    // Change AddBooking() to search for customer
-                    // and call AddCustomer() if not found.
-                    SelectCustomer();
-                    // If not found...
-                    AddCustomer();
-                    // Then...
-                    AddBooking();
-                    break;
-
-                case 'S':
-                    // Implement ShowBookings().
-                    ShowBookings();
-                    break;
-
-                case 'C':
-                    // Implement ChangeBooking().
-                    // ChangeBooking();
-                    break;
-
-                case 'D':
-                    // Implement DeleteBooking().
-                    DeleteBooking();
-                    break;
-
-                case 'R':
-                    // Implement RestoreBooking().
-                    // RestoreBooking();
-                    break;
-
-                case 'X':
-                    return;
-            }
-        }
-    }
 
     // ---------------------------------------------------------------------------------------
     // Customer functions
 
-    private List<Customer> GetCustomers()
+    public List<Customer> GetCustomers()
     {
         using var reader = _db.ExecuteReader(Queries.SelectCustomers, []);
 
@@ -82,7 +24,7 @@ class HolidayMaker(Database db)
         return customers;
     }
 
-    private Customer? GetCustomer(ulong customerNumber)
+    public Customer? GetCustomer(ulong customerNumber)
     {
         using var reader = _db.ExecuteReader(Queries.SelectCustomer,
             [("@customer_number", customerNumber)]);
@@ -100,60 +42,8 @@ class HolidayMaker(Database db)
         return customer;
     }
 
-    private void ShowCustomers()
+    public bool InsertCustomer(string name, string address, string email, string phone)
     {
-        ConsoleUI.ShowList("Customers", GetCustomers().Select(
-            customer => customer.ToString()).ToArray());
-    }
-
-    private void SelectCustomer()
-    {
-        ShowCustomers();
-
-        if (ulong.TryParse(
-            ConsoleUI.GetStringInput("Select customer: "),
-            out ulong customerNumber))
-        {
-            _currentCustomer = GetCustomer(customerNumber);
-            if (_currentCustomer is null)
-                ConsoleUI.ShowMessage($"Customer ({customerNumber}) doesn't exist. No customer selected.");
-            else
-                ConsoleUI.ShowMessage($"Selected customer {_currentCustomer}.");
-        }
-        else
-            ConsoleUI.ShowMessage("Invalid customer number.");
-    }
-
-    private void AddCustomer()
-    {
-        string? name = ConsoleUI.GetStringInput("Enter customer name: ");
-        if (name is null)
-        {
-            ConsoleUI.ShowMessage("Name cannot be omitted. Customer was not added.");
-            return;
-        }
-
-        string? address = ConsoleUI.GetStringInput("Enter customer address: ");
-        if (address is null)
-        {
-            ConsoleUI.ShowMessage("Address cannot be omitted. Customer was not added.");
-            return;
-        }
-
-        string? email = ConsoleUI.GetStringInput("Enter customer email: ");
-        if (email is null)
-        {
-            ConsoleUI.ShowMessage("Email cannot be omitted. Customer was not added.");
-            return;
-        }
-
-        string? phone = ConsoleUI.GetStringInput("Enter customer phone: ");
-        if (phone is null)
-        {
-            ConsoleUI.ShowMessage("Phone cannot be omitted. Customer was not added.");
-            return;
-        }
-
         (string, object)[] parameters =
         [
             ("@name", name),
@@ -162,10 +52,21 @@ class HolidayMaker(Database db)
             ("@phone", phone)
         ];
 
-        if (_db.ExecuteNonQuery(Queries.InsertCustomer, parameters) == 1)
-            ConsoleUI.ShowMessage($"Added customer '{name}'.");
-        else
-            ConsoleUI.ShowMessage($"Failed to add customer {name}.");
+        return _db.ExecuteNonQuery(Queries.InsertCustomer, parameters) == 1;
+    }
+
+    public bool GetLastInsertedId(out ulong id)
+    {
+        id = 0;
+
+        using var reader = _db.ExecuteReader("SELECT LAST_INSERT_ID()", []);
+
+        if (reader.Read())
+        {
+            id = reader.GetUInt64(0);
+            return true;
+        }
+        return false;
     }
 
     // private void DeleteCustomer()
@@ -195,181 +96,12 @@ class HolidayMaker(Database db)
     // ---------------------------------------------------------------------------------------
     // Booking functions
 
-    private void ShowBookings()
-    {
-        if (_currentCustomer is null)
-        {
-            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
-            return;
-        }
-
-
-    }
-
-    private void AddBooking()
-    {
-        if (_currentCustomer is null)
-        {
-            ConsoleUI.ShowMessage("No customer selected. Go to Customer menu and select a customer first.");
-            return;
-        }
-
-        // Select location
-        List<(char, string)> locations = [];
-        char c = 'A';
-        foreach (string location in GetLocations())
-            locations.Add((c++, location));
-        locations.Add(('X', "Cancel"));
-        c = ConsoleUI.Menu("Locations", locations.ToArray());
-
-        if (c == 'X')
-            return;
-
-        string selectedLocation = locations.Find(l => l.Item1 == c).Item2;
-        ConsoleUI.ShowMessage($"Location: {selectedLocation}");
-
-        // Select number of people
-        if (!byte.TryParse(ConsoleUI.GetStringInput("How many people will you be (1): "), out byte occupants))
-            occupants = 1;
-
-        // Select dates
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
-            "Enter checkin date: "), out DateOnly checkinDate))
-        {
-            ConsoleUI.ShowMessage("Invalid checkin date.");
-            return;
-        }
-        if (!DateOnly.TryParse(ConsoleUI.GetStringInput(
-            "Enter checkout date: "), out DateOnly checkoutDate))
-        {
-            ConsoleUI.ShowMessage("Invalid checkout date.");
-            return;
-        }
-        if (checkoutDate <= checkinDate)
-        {
-            ConsoleUI.ShowMessage($"Checkout date ({checkoutDate}) must be after checkin date ({checkinDate}).");
-            return;
-        }
-
-        // Select distance to the beach
-        if (!uint.TryParse(ConsoleUI.GetStringInput(
-            "Select maximum distance to the beach (0 or no entry ignores it): "),
-            out uint distanceToBeach))
-        {
-            distanceToBeach = 0;
-        }
-
-        // Select distance to the city
-        if (!uint.TryParse(ConsoleUI.GetStringInput(
-            "Select maximum distance to the city centre (0 or no entry ignores it): "),
-            out uint distanceToCity))
-        {
-            distanceToCity = 0;
-        }
-
-        // Should the hotel have a pool?
-        bool hasPool = false;
-        string? input = ConsoleUI.GetStringInput(
-            "Should the hotel have a pool? (Yes/[No]): ");
-
-        if (input is not null && input.ToUpper()[0] == 'Y')
-            hasPool = true;
-
-        // Should the hotel have a restaurant?
-        bool hasRestaurant = false;
-        input = ConsoleUI.GetStringInput(
-            "Should the hotel have a restaurant? (Yes/[No]): ");
-
-        if (input is not null && input.ToUpper()[0] == 'Y')
-            hasRestaurant = true;
-
-        // How should the results be sorted?
-        c = ConsoleUI.Menu("How do you want the results sorted?",
-        [
-            ('S', "Standard (City, hotel name and room number)"),
-            ('P', "Price/night"),
-            ('R', "Hotel rating")
-        ]);
-
-        Queries.OrderByFindAvailableRooms orderBy;
-        switch (c)
-        {
-            case 'P':
-                orderBy = Queries.OrderByFindAvailableRooms.PricePerNight;
-                break;
-
-            case 'R':
-                orderBy = Queries.OrderByFindAvailableRooms.Rating;
-                break;
-
-            default:
-                orderBy = Queries.OrderByFindAvailableRooms.Standard;
-                break;
-        }
-
-        // Find available rooms
-        List<(Hotel hotel, Room room)> availableRooms =
-            FindAvailableRooms(
-                selectedLocation,
-                occupants,
-                checkinDate,
-                checkoutDate,
-                distanceToBeach,
-                distanceToCity,
-                hasPool,
-                hasRestaurant,
-                orderBy);
-
-        if (availableRooms.Count < 1)
-        {
-            ConsoleUI.ShowMessage("There are no available rooms.");
-            ConsoleUI.ShowMessage("Please change your search criteria.");
-            return;
-        }
-
-        // Show available rooms and select one
-        string title =
-        "      Hotel                          Location              Room Capacity      Price";
-        string[] choices = availableRooms.Select(
-            r =>
-            $"{r.hotel.Name,-30} " +
-            $"{r.hotel.Location,-20} " +
-            $"{r.room.RoomNumber,5} " +
-            $"{r.room.Capacity,8} " +
-            $"{r.room.PricePerNight,10}").ToArray();
-        int i = ConsoleUI.UnknownLengthMenu(title, choices);
-
-        // Book the room
-        i--;
-        Hotel hotel = availableRooms[i].hotel;
-        Room room = availableRooms[i].room;
-
-        (string, object)[] parameters =
-        [
-            ("@customer_number", _currentCustomer.CustomerNumber),
-            ("@room_id", room.Id),
-            ("@checkin_date", checkinDate),
-            ("@checkout_date", checkoutDate),
-            ("@total_price", room.PricePerNight * (checkoutDate.DayNumber - checkinDate.DayNumber)),
-            ("@cancelled", false),
-            ("@number_of_occupants", occupants)
-        ];
-
-        if (_db.ExecuteNonQuery(Queries.InsertBooking, parameters) == 1)
-            ConsoleUI.ShowMessage(
-                @$"Added booking for {_currentCustomer.Name},
-                at {hotel.Name} in {hotel.Location}
-                from {checkinDate} to {checkoutDate}.");
-        else
-            ConsoleUI.ShowMessage($"Failed to add booking for {_currentCustomer.Name}");
-    }
-
     private void DeleteBooking()
     {
 
     }
 
-    private string[] GetLocations()
+    public string[] GetLocations()
     {
         using var reader = _db.ExecuteReader(Queries.FindLocations, []);
         List<string> locations = [];
@@ -380,7 +112,7 @@ class HolidayMaker(Database db)
         return locations.ToArray();
     }
 
-    private List<(Hotel hotel, Room room)> FindAvailableRooms(
+    public List<(Hotel hotel, Room room)> FindAvailableRooms(
         string location,
         byte occupants,
         DateOnly check_in_date,
@@ -456,5 +188,21 @@ class HolidayMaker(Database db)
                 ));
         }
         return rooms;
+    }
+
+    public bool InsertBooking(Booking booking, Customer customer, Hotel hotel, Room room)
+    {
+        (string, object)[] parameters =
+        [
+            ("@customer_number", customer.CustomerNumber),
+            ("@room_id", room.Id),
+            ("@checkin_date", booking.CheckinDate),
+            ("@checkout_date", booking.CheckoutDate),
+            ("@total_price", booking.TotalPrice),
+            ("@cancelled", booking.Cancelled),
+            ("@number_of_occupants", booking.Occupants)
+        ];
+
+        return _db.ExecuteNonQuery(Queries.InsertBooking, parameters) == 1;
     }
 }
