@@ -168,29 +168,29 @@ class HolidayMaker(Database db)
             ConsoleUI.ShowMessage($"Failed to add customer {name}.");
     }
 
-    private void DeleteCustomer()
-    {
-        ShowCustomers();
+    // private void DeleteCustomer()
+    // {
+    //     ShowCustomers();
 
-        if (ulong.TryParse(
-            ConsoleUI.GetStringInput(
-                "Enter the customer number of the customer you want to delete: "),
-            out ulong customerNumber))
-        {
-            if (GetCustomer(customerNumber) is null)
-            {
-                ConsoleUI.ShowMessage($"Customer ({customerNumber}) doesn't exist.");
-                return;
-            }
+    //     if (ulong.TryParse(
+    //         ConsoleUI.GetStringInput(
+    //             "Enter the customer number of the customer you want to delete: "),
+    //         out ulong customerNumber))
+    //     {
+    //         if (GetCustomer(customerNumber) is null)
+    //         {
+    //             ConsoleUI.ShowMessage($"Customer ({customerNumber}) doesn't exist.");
+    //             return;
+    //         }
 
-            (string, object)[] parameters = [("@customer_number", customerNumber)];
+    //         (string, object)[] parameters = [("@customer_number", customerNumber)];
 
-            if (_db.ExecuteNonQuery(Queries.DeleteCustomer, parameters) == 1)
-                ConsoleUI.ShowMessage($"Customer ({customerNumber}) was deleted.");
-            else
-                ConsoleUI.ShowMessage($"Failed to delete customer ({customerNumber}).");
-        }
-    }
+    //         if (_db.ExecuteNonQuery(Queries.DeleteCustomer, parameters) == 1)
+    //             ConsoleUI.ShowMessage($"Customer ({customerNumber}) was deleted.");
+    //         else
+    //             ConsoleUI.ShowMessage($"Failed to delete customer ({customerNumber}).");
+    //     }
+    // }
 
     // ---------------------------------------------------------------------------------------
     // Booking functions

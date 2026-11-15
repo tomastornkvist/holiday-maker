@@ -84,6 +84,6 @@ static class Queries
 
     // ----------------------------------------------------------------------------------
     // DELETE queries
-    public const string DeleteCustomer =
-    "DELETE FROM customers WHERE customer_number = @customer_number";
+    // public const string DeleteCustomer =
+    // "DELETE FROM customers WHERE customer_number = @customer_number";
 }
