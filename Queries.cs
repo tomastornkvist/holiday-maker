@@ -12,6 +12,8 @@ static class Queries
     public const string SelectCustomers = "SELECT * FROM customers";
     public const string SelectCustomer =
     "SELECT * FROM customers WHERE customer_number = @customer_number";
+    public const string FindCustomer =
+    "SELECT * FROM customers WHERE name LIKE CONCAT('%', @name, '%')";
 
     public const string FindLocations = "SELECT DISTINCT location FROM hotels";
 

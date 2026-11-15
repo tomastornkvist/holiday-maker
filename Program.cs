@@ -43,7 +43,6 @@
                     break;
 
                 case 'S':
-                    // Implement ShowBookings().
                     ShowBookings();
                     break;
 
@@ -55,11 +54,6 @@
                 case 'D':
                     // Implement RemoveBooking().
                     RemoveBooking();
-                    break;
-
-                case 'R':
-                    // Implement RestoreBooking().
-                    RestoreBooking();
                     break;
 
                 case 'X':
@@ -113,22 +107,6 @@
     {
         ConsoleUI.ShowList("Customers", _hm.GetCustomers().Select(
             customer => customer.ToString()).ToArray());
-    }
-
-    private Customer? SelectCustomer()
-    {
-        Customer? customer = null;
-
-        ShowCustomers();
-
-        if (ulong.TryParse(
-            ConsoleUI.GetStringInput("Select customer: "),
-            out ulong customerNumber))
-        {
-            customer = _hm.GetCustomer(customerNumber);
-        }
-
-        return customer;
     }
 
     private void AddBooking()
@@ -308,6 +286,28 @@
             ConsoleUI.ShowMessage($"Failed to add booking for {_currentCustomer.Name}");
     }
 
+    private Customer? SelectCustomer()
+    {
+        string? customerName = ConsoleUI.GetStringInput("Enter customer name: ");
+
+        if (customerName is null)
+        {
+            ConsoleUI.ShowMessage("Invalid name.");
+            return null;
+        }
+
+        List<Customer> customers = _hm.FindCustomers(customerName);
+
+        if (customers.Count == 0) return null;
+        if (customers.Count == 1) return customers[0];
+
+        int index = ConsoleUI.UnknownLengthMenu(
+            "Select a customer",
+            customers.Select(c => c.Name).ToArray());
+
+        return customers[--index];
+    }
+
     private void ShowBookings()
     {
         _currentCustomer = SelectCustomer();
@@ -352,11 +352,6 @@
     }
 
     private void RemoveBooking()
-    {
-
-    }
-
-    private void RestoreBooking()
     {
 
     }

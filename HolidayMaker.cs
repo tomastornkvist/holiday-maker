@@ -14,12 +14,14 @@ class HolidayMaker(Database db)
         List<Customer> customers = [];
 
         while (reader.Read())
+        {
             customers.Add(
                 new(reader.GetUInt64("customer_number"),
                     reader.GetString("name"),
                     reader.GetString("address"),
                     reader.GetString("email"),
                     reader.GetString("phone")));
+        }
 
         return customers;
     }
@@ -32,14 +34,34 @@ class HolidayMaker(Database db)
         Customer? customer = null;
 
         if (reader.Read())
+        {
             customer = new(
                 reader.GetUInt64("customer_number"),
                 reader.GetString("name"),
                 reader.GetString("address"),
                 reader.GetString("email"),
                 reader.GetString("phone"));
+        }
 
         return customer;
+    }
+
+    public List<Customer> FindCustomers(string name)
+    {
+        List<Customer> customers = [];
+
+        using var reader = _db.ExecuteReader(Queries.FindCustomer, [("@name", name)]);
+
+        while (reader.Read())
+        {
+            customers.Add(
+                new(reader.GetUInt64("customer_number"),
+                    reader.GetString("name"),
+                    reader.GetString("address"),
+                    reader.GetString("email"),
+                    reader.GetString("phone")));
+        }
+        return customers;
     }
 
     public bool InsertCustomer(string name, string address, string email, string phone)
@@ -61,12 +83,11 @@ class HolidayMaker(Database db)
 
         using var reader = _db.ExecuteReader("SELECT LAST_INSERT_ID()", []);
 
-        if (reader.Read())
-        {
-            id = reader.GetUInt64(0);
-            return true;
-        }
-        return false;
+        if (!reader.Read())
+            return false;
+
+        id = reader.GetUInt64(0);
+        return true;
     }
 
     // ---------------------------------------------------------------------------------------

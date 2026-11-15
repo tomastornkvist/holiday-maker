@@ -5,6 +5,8 @@ INSERT INTO customers (name, address, email, phone) VALUES (@name, @address, @em
 SELECT * FROM customers;
 SET @customer_number = 2;
 SELECT * FROM customers WHERE customer_number = @customer_number;
+SET @name = 'Tomas';
+SELECT * FROM customers WHERE name LIKE CONCAT('%', @name, '%');
 
 # Find available rooms
 SET @location = 'Malmö';
