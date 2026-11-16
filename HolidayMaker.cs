@@ -93,11 +93,6 @@ class HolidayMaker(Database db)
     // ---------------------------------------------------------------------------------------
     // Booking functions
 
-    private void DeleteBooking()
-    {
-
-    }
-
     public string[] GetLocations()
     {
         using var reader = _db.ExecuteReader(Queries.FindLocations, []);
@@ -134,13 +129,13 @@ class HolidayMaker(Database db)
         if (distanceToBeach > 0)
         {
             parameters.Add(("@distance_to_beach", distanceToBeach));
-            sql.Append(Queries.FindAvailableRoomsAndDistanceToBeach);
+            sql.Append(Queries.FindAvailableRoomsDistanceToBeach);
         }
 
         if (distanceToCity > 0)
         {
             parameters.Add(("@distance_to_city", distanceToCity));
-            sql.Append(Queries.FindAvailableRoomsAndDistanceToCity);
+            sql.Append(Queries.FindAvailableRoomsDistanceToCity);
         }
 
         if (hasPool)
@@ -211,7 +206,7 @@ class HolidayMaker(Database db)
         List<(Booking, Room, Hotel)> bookings = [];
 
         using var reader = _db.ExecuteReader(
-            Queries.SelectBookings,
+            Queries.SelectCustomerBookings,
             [("@customer_number", customerNumber)]);
 
         while (reader.Read())
@@ -247,5 +242,61 @@ class HolidayMaker(Database db)
         }
 
         return bookings;
+    }
+
+    public (Booking, Room, Hotel)? GetBooking(ulong bookingNumber)
+    {
+        using var reader = _db.ExecuteReader(
+            Queries.SelectBooking, [("@booking_number", bookingNumber)]);
+
+        if (reader.Read())
+        {
+            (Booking, Room, Hotel) booking = new(
+
+                // Booking
+                new(reader.GetUInt64("booking_number"),
+                    reader.GetUInt64("customer_number"),
+                    reader.GetUInt64("room_id"),
+                    reader.GetDateOnly("checkin_date"),
+                    reader.GetDateOnly("checkout_date"),
+                    reader.GetDecimal("total_price"),
+                    reader.GetBoolean("cancelled"),
+                    reader.GetByte("number_of_occupants")),
+
+                // Room
+                new(reader.GetUInt64("room_id"),
+                    reader.GetDecimal("price_per_night"),
+                    reader.GetByte("capacity"),
+                    reader.GetUInt64("hotel_id"),
+                    reader.GetUInt32("room_number")),
+
+                // Hotel
+                new(reader.GetUInt64("hotel_id"),
+                    reader.GetString("name"),
+                    reader.GetString("location"),
+                    reader.GetUInt32("distance_to_beach"),
+                    reader.GetUInt32("distance_to_city"),
+                    reader.GetDecimal("rating"))
+            );
+            return booking;
+        }
+        return null;
+    }
+
+    public bool UpdateBookingOccupants(ulong bookingNumber, byte occupants)
+    {
+        (string, object)[] parameters =
+        [
+            ("@booking_number", bookingNumber),
+            ("@number_of_occupants", occupants)
+        ];
+
+        return _db.ExecuteNonQuery(Queries.UpdateBookingOccupants, parameters) == 1;
+    }
+
+    public bool CancelBooking(ulong bookingNumber)
+    {
+        return _db.ExecuteNonQuery(
+            Queries.CancelBooking, [("@booking_number", bookingNumber)]) == 1;
     }
 }

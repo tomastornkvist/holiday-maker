@@ -21,6 +21,7 @@
     {
         while (true)
         {
+            ConsoleUI.ShowMessage("");
             char input = ConsoleUI.Menu("Main menu",
             [
                 ('A', "Add customer"),
@@ -28,7 +29,6 @@
                 ('S', "Show bookings"),
                 ('C', "Change booking"),
                 ('D', "Delete booking"),
-                ('R', "Restore booking"),
                 ('X', "Exit")
             ]);
 
@@ -148,7 +148,7 @@
 
         // Select number of people
         if (!byte.TryParse(ConsoleUI.GetStringInput(
-            "How many people will you be (1): "),
+            "How many people will you be [1]: "),
             out byte occupants))
         {
             occupants = 1;
@@ -322,20 +322,22 @@
         _hm.GetBookings(_currentCustomer.CustomerNumber);
 
         string title =
-            "Booking " +
+            "Booking number " +
             "Hotel                          " +
             "Location             " +
             "Room  " +
+            "Capacity " +
             "Checkin    " +
             "Checkout   " +
             "Occupants " +
             "Price     ";
         string[] bookingRows = bookings.Select(
             b =>
-            $"{b.booking.BookingNumber,7} " +
+            $"{b.booking.BookingNumber,14} " +
             $"{b.hotel.Name,-30} " +
             $"{b.hotel.Location,-20} " +
             $"{b.room.RoomNumber,5} " +
+            $"{b.room.Capacity,8} " +
             $"{b.booking.CheckinDate} " +
             $"{b.booking.CheckoutDate} " +
             $"{b.booking.Occupants,9} " +
@@ -348,11 +350,81 @@
 
     private void ChangeBooking()
     {
+        ShowBookings();
 
+        if (_currentCustomer is null)
+            return;
+
+        if (!ulong.TryParse(
+            ConsoleUI.GetStringInput("Enter booking number: "),
+            out ulong bookingNumber))
+        {
+            ConsoleUI.ShowMessage("Invalid booking number.");
+            return;
+        }
+
+        (Booking booking, Room room, Hotel hotel)? booking = _hm.GetBooking(bookingNumber);
+        if (booking is null)
+        {
+            ConsoleUI.ShowMessage($"There's no booking with number: {bookingNumber}.");
+            return;
+        }
+
+        if (!byte.TryParse(
+            ConsoleUI.GetStringInput(
+                $"How many occupants will you be? ({booking?.booking.Occupants}) " +
+                $"(max {booking?.room.Capacity}) "),
+                out byte occupants))
+        {
+            ConsoleUI.ShowMessage("Invalid number of occupants.");
+            return;
+        }
+
+        if (occupants < 1)
+        {
+            ConsoleUI.ShowMessage("You are not allowed to have a room booked for nobody.");
+            return;
+        }
+
+        if (occupants > booking?.room.Capacity)
+        {
+            ConsoleUI.ShowMessage($"{occupants} exceeds the capacity for the room.");
+            return;
+        }
+
+        if (_hm.UpdateBookingOccupants(bookingNumber, occupants))
+            ConsoleUI.ShowMessage(
+                $"Changed number of occupants to {occupants} for booking: {bookingNumber}");
+        else
+            ConsoleUI.ShowMessage($"Failed to update booking: {bookingNumber}");
     }
 
     private void RemoveBooking()
     {
+        ShowBookings();
 
+        if (_currentCustomer is null)
+            return;
+
+        if (!ulong.TryParse(
+            ConsoleUI.GetStringInput("Enter booking number: "),
+            out ulong bookingNumber))
+        {
+            ConsoleUI.ShowMessage("Invalid booking number.");
+            return;
+        }
+
+        (Booking booking, Room room, Hotel hotel)? booking = _hm.GetBooking(bookingNumber);
+        if (booking is null)
+        {
+            ConsoleUI.ShowMessage($"There's no booking with number: {bookingNumber}.");
+            return;
+        }
+
+        if (_hm.CancelBooking(bookingNumber))
+            ConsoleUI.ShowMessage(
+                $"Cancelled booking: {bookingNumber}");
+        else
+            ConsoleUI.ShowMessage($"Failed to cancel booking: {bookingNumber}");
     }
 }

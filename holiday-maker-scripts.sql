@@ -15,7 +15,6 @@ SET @check_out_date = '2026-12-03';
 SET @capacity = 1;
 SET @distance_to_beach = 1000;
 SET @distance_to_city = 2000;
-
 SELECT
     h.id AS hotel_id,
     h.name,
@@ -50,8 +49,6 @@ ORDER BY h.location, h.name, r.room_number
 #ORDER BY h.rating
 
 # Select bookings
-SET @customer_number = 3;
-
 SELECT
     b.*,
     r.id AS room_id,
@@ -68,5 +65,35 @@ SELECT
 FROM bookings b
     JOIN rooms r ON b.room_id = r.id
     JOIN hotels h ON r.hotel_id = h.id
-WHERE b.customer_number = @customer_number
+WHERE b.booking_number = @booking_number AND cancelled = FALSE;
+
+SET @customer_number = 3;
+SELECT
+    b.*,
+    r.id AS room_id,
+    r.price_per_night,
+    r.capacity,
+    r.hotel_id,
+    r.room_number,
+    h.id AS hotel_id,
+    h.name,
+    h.location,
+    h.distance_to_beach,
+    h.distance_to_city,
+    h.rating
+FROM bookings b
+    JOIN rooms r ON b.room_id = r.id
+    JOIN hotels h ON r.hotel_id = h.id
+WHERE b.customer_number = @customer_number AND cancelled = FALSE
 ORDER BY b.checkin_date;
+
+# Update/remove bookings
+SET @booking_number = 1;
+SET @number_of_occupants = 1;
+UPDATE bookings b JOIN rooms r ON b.room_id = r.id
+SET number_of_occupants = @number_of_occupants
+WHERE booking_number = @booking_number
+    AND @number_of_occupants BETWEEN 1 AND r.capacity;
+
+SET @booking_number = 1;
+UPDATE bookings SET cancelled = TRUE WHERE booking_number = @booking_number;
