@@ -1,4 +1,5 @@
 using System.Text;
+using MySqlConnector;
 
 class HolidayMaker(Database database)
 {
@@ -28,14 +29,7 @@ class HolidayMaker(Database database)
         Customer? customer = null;
 
         if (reader.Read())
-        {
-            customer = new(
-                reader.GetUInt64("customer_number"),
-                reader.GetString("name"),
-                reader.GetString("address"),
-                reader.GetString("email"),
-                reader.GetString("phone"));
-        }
+            customer = ReadCustomer(reader);
 
         return customer;
     }
@@ -47,14 +41,8 @@ class HolidayMaker(Database database)
         using var reader = _db.ExecuteReader(Queries.FindCustomer, [("@name", name)]);
 
         while (reader.Read())
-        {
-            customers.Add(
-                new(reader.GetUInt64("customer_number"),
-                    reader.GetString("name"),
-                    reader.GetString("address"),
-                    reader.GetString("email"),
-                    reader.GetString("phone")));
-        }
+            customers.Add(ReadCustomer(reader));
+
         return customers;
     }
 
@@ -145,25 +133,8 @@ class HolidayMaker(Database database)
         using var reader = _db.ExecuteReader(sql.ToString(), parameters.ToArray());
 
         while (reader.Read())
-        {
-            rooms.Add(
-                new(
-                    // Hotel
-                    new(reader.GetUInt64("hotel_id"),
-                        reader.GetString("name"),
-                        reader.GetString("location"),
-                        reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
-                        reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
-                        reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating")),
+            rooms.Add(new(ReadHotel(reader), ReadRoom(reader)));
 
-                    // Room
-                    new(reader.GetUInt64("room_id"),
-                        reader.GetDecimal("price_per_night"),
-                        reader.GetByte("capacity"),
-                        reader.GetUInt64("hotel_id"),
-                        reader.GetUInt32("room_number"))
-                ));
-        }
         return rooms;
     }
 
@@ -224,36 +195,7 @@ class HolidayMaker(Database database)
             [("@customer_number", customerNumber)]);
 
         while (reader.Read())
-        {
-            bookings.Add
-            (
-                new(
-                    // Booking
-                    new(reader.GetUInt64("booking_number"),
-                        reader.GetUInt64("customer_number"),
-                        reader.GetUInt64("room_id"),
-                        reader.GetDateOnly("checkin_date"),
-                        reader.GetDateOnly("checkout_date"),
-                        reader.GetDecimal("total_price"),
-                        reader.GetBoolean("cancelled"),
-                        reader.GetByte("number_of_occupants")),
-
-                    // Room
-                    new(reader.GetUInt64("room_id"),
-                        reader.GetDecimal("price_per_night"),
-                        reader.GetByte("capacity"),
-                        reader.GetUInt64("hotel_id"),
-                        reader.GetUInt32("room_number")),
-
-                    // Hotel
-                    new(reader.GetUInt64("hotel_id"),
-                        reader.GetString("name"),
-                        reader.GetString("location"),
-                        reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
-                        reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
-                        reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating"))
-                ));
-        }
+            bookings.Add(new(ReadBooking(reader), ReadRoom(reader), ReadHotel(reader)));
 
         return bookings;
     }
@@ -264,36 +206,8 @@ class HolidayMaker(Database database)
             Queries.SelectBooking, [("@booking_number", bookingNumber)]);
 
         if (reader.Read())
-        {
-            (Booking, Room, Hotel) booking = new(
+            return new(ReadBooking(reader), ReadRoom(reader), ReadHotel(reader));
 
-                // Booking
-                new(reader.GetUInt64("booking_number"),
-                    reader.GetUInt64("customer_number"),
-                    reader.GetUInt64("room_id"),
-                    reader.GetDateOnly("checkin_date"),
-                    reader.GetDateOnly("checkout_date"),
-                    reader.GetDecimal("total_price"),
-                    reader.GetBoolean("cancelled"),
-                    reader.GetByte("number_of_occupants")),
-
-                // Room
-                new(reader.GetUInt64("room_id"),
-                    reader.GetDecimal("price_per_night"),
-                    reader.GetByte("capacity"),
-                    reader.GetUInt64("hotel_id"),
-                    reader.GetUInt32("room_number")),
-
-                // Hotel
-                new(reader.GetUInt64("hotel_id"),
-                    reader.GetString("name"),
-                    reader.GetString("location"),
-                    reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
-                    reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
-                    reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating"))
-            );
-            return booking;
-        }
         return null;
     }
 
@@ -324,5 +238,49 @@ class HolidayMaker(Database database)
     {
         using var reader = _db.ExecuteReader(Queries.SelectDuplicatePhone, [("@phone", phone)]);
         return !reader.Read();
+    }
+
+    private Customer ReadCustomer(MySqlDataReader reader)
+    {
+        return new(
+            reader.GetUInt64("customer_number"),
+            reader.GetString("name"),
+            reader.GetString("address"),
+            reader.IsDBNull(reader.GetOrdinal("email")) ? "" : reader.GetString("email"),
+            reader.IsDBNull(reader.GetOrdinal("phone")) ? "" : reader.GetString("phone"));
+    }
+
+    private Hotel ReadHotel(MySqlDataReader reader)
+    {
+        return new(
+            reader.GetUInt64("hotel_id"),
+            reader.GetString("name"),
+            reader.GetString("location"),
+            reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
+            reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
+            reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating"));
+    }
+
+    private Room ReadRoom(MySqlDataReader reader)
+    {
+        return new(
+            reader.GetUInt64("room_id"),
+            reader.GetDecimal("price_per_night"),
+            reader.GetByte("capacity"),
+            reader.GetUInt64("hotel_id"),
+            reader.GetUInt32("room_number"));
+    }
+
+    private Booking ReadBooking(MySqlDataReader reader)
+    {
+        return new(
+            reader.GetUInt64("booking_number"),
+            reader.GetUInt64("customer_number"),
+            reader.GetUInt64("room_id"),
+            reader.GetDateOnly("checkin_date"),
+            reader.GetDateOnly("checkout_date"),
+            reader.GetDecimal("total_price"),
+            reader.GetBoolean("cancelled"),
+            reader.GetByte("number_of_occupants"));
     }
 }

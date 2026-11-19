@@ -19,9 +19,9 @@ SELECT * FROM customers
 WHERE name LIKE CONCAT('%', @name, '%');
 
 # Check for duplicate email and phone
-SET @email = 'maria.lindqvist@example.com'
+SET @email = 'maria.lindqvist@example.com';
 SELECT 1 FROM customers WHERE email = @email;
-SET @phone = '073-234 56 78'
+SET @phone = '073-234 56 78';
 SELECT 1 FROM customers WHERE phone = @phone;
 
 # Find locations
@@ -80,8 +80,8 @@ SET @checkout_date = '2026-12-03';
 SELECT 1 FROM bookings
 WHERE room_id = @room_id
     AND cancelled = FALSE
-    AND b.checkin_date < @checkout_date
-    AND b.checkout_date > @checkin_date
+    AND checkin_date < @checkout_date
+    AND checkout_date > @checkin_date
 FOR UPDATE;
 
 # Select booking

@@ -31,6 +31,10 @@ internal class Program : IDisposable
                     break;
             }
         }
+        catch (Exception e)
+        {
+            ConsoleUI.ShowMessage(e.Message);
+        }
         finally
         {
             program?.Dispose();
@@ -96,6 +100,10 @@ internal class Program : IDisposable
             {
                 ConsoleUI.ShowMessage($"Database error: {ex.Message}. The operation was cancelled.");
                 _db.EnsureOpen();
+            }
+            catch (Exception e)
+            {
+                ConsoleUI.ShowMessage(e.Message);
             }
         }
     }
