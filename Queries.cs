@@ -9,8 +9,6 @@ static class Queries
 
     // ----------------------------------------------------------------------------------
     // SELECT queries
-    public const string SelectCustomers = "SELECT * FROM customers";
-
     public const string SelectCustomer =
     "SELECT * FROM customers WHERE customer_number = @customer_number";
 
@@ -43,19 +41,32 @@ static class Queries
     public const string FindAvailableRoomsWhere =
     @" WHERE h.location = @location
         AND r.capacity >= @capacity
-        AND NOT EXISTS (
+        AND NOT EXISTS
+        (
             SELECT 1
             FROM bookings b
             WHERE b.room_id = r.id
-              AND b.cancelled = FALSE
-              AND b.checkin_date < @check_out_date
-              AND b.checkout_date > @check_in_date
-            )";
+                AND b.cancelled = FALSE
+                AND b.checkin_date < @checkout_date
+                AND b.checkout_date > @checkin_date
+        )";
     public const string FindAvailableRoomsDistanceToBeach = " AND h.distance_to_beach <= @distance_to_beach";
     public const string FindAvailableRoomsDistanceToCity = " AND h.distance_to_city <= @distance_to_city";
     public const string FindAvailableRoomsOrderByStandard = " ORDER BY h.location, h.name, r.room_number";
     public const string FindAvailableRoomsOrderByPricePerNight = " ORDER BY r.price_per_night";
-    public const string FindAvailableRoomsOrderByRating = " ORDER BY h.rating";
+    public const string FindAvailableRoomsOrderByRating = " ORDER BY h.rating DESC";
+
+    public const string LockRoomForUpdate = "SELECT id FROM rooms WHERE id = @room_id FOR UPDATE";
+    public const string CheckRoomAvailability =
+    @"SELECT 1 FROM bookings
+    WHERE room_id = @room_id
+        AND cancelled = FALSE
+        AND checkin_date < @checkout_date
+        AND checkout_date > @checkin_date
+    FOR UPDATE";
+
+    public const string SelectDuplicateEmail = "SELECT 1 FROM customers WHERE email = @email";
+    public const string SelectDuplicatePhone = "SELECT 1 FROM customers WHERE phone = @phone";
 
     public const string SelectBooking =
     @"SELECT

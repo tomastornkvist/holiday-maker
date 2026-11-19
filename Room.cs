@@ -14,9 +14,4 @@ class Room
         HotelId = hotelId;
         RoomNumber = roomNumber;
     }
-
-    public override string ToString()
-    {
-        return $"Room number: {RoomNumber}, Capacity: {Capacity}, Price per night: {PricePerNight}";
-    }
 }

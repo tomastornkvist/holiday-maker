@@ -1,30 +1,24 @@
 using System.Text;
 
-class HolidayMaker(Database db)
+class HolidayMaker(Database database)
 {
-    private readonly Database _db = db;
+    private readonly Database _db = database;
+
+    public bool GetLastInsertedId(out ulong id)
+    {
+        id = 0;
+
+        using var reader = _db.ExecuteReader("SELECT LAST_INSERT_ID()", []);
+
+        if (!reader.Read())
+            return false;
+
+        id = reader.GetUInt64(0);
+        return true;
+    }
 
     // ---------------------------------------------------------------------------------------
     // Customer functions
-
-    public List<Customer> GetCustomers()
-    {
-        using var reader = _db.ExecuteReader(Queries.SelectCustomers, []);
-
-        List<Customer> customers = [];
-
-        while (reader.Read())
-        {
-            customers.Add(
-                new(reader.GetUInt64("customer_number"),
-                    reader.GetString("name"),
-                    reader.GetString("address"),
-                    reader.GetString("email"),
-                    reader.GetString("phone")));
-        }
-
-        return customers;
-    }
 
     public Customer? GetCustomer(ulong customerNumber)
     {
@@ -77,19 +71,6 @@ class HolidayMaker(Database db)
         return _db.ExecuteNonQuery(Queries.InsertCustomer, parameters) == 1;
     }
 
-    public bool GetLastInsertedId(out ulong id)
-    {
-        id = 0;
-
-        using var reader = _db.ExecuteReader("SELECT LAST_INSERT_ID()", []);
-
-        if (!reader.Read())
-            return false;
-
-        id = reader.GetUInt64(0);
-        return true;
-    }
-
     // ---------------------------------------------------------------------------------------
     // Booking functions
 
@@ -107,8 +88,8 @@ class HolidayMaker(Database db)
     public List<(Hotel hotel, Room room)> FindAvailableRooms(
         string location,
         byte occupants,
-        DateOnly check_in_date,
-        DateOnly check_out_date,
+        DateOnly checkinDate,
+        DateOnly checkoutDate,
         uint distanceToBeach,
         uint distanceToCity,
         bool hasPool,
@@ -122,9 +103,17 @@ class HolidayMaker(Database db)
         [
             ("@location", location),
             ("@capacity", occupants),
-            ("@check_in_date", check_in_date),
-            ("@check_out_date", check_out_date)
+            ("@checkin_date", checkinDate),
+            ("@checkout_date", checkoutDate)
         ];
+
+        if (hasPool)
+            sql.Append(Queries.FindAvailableRoomsHasPool);
+
+        if (hasRestaurant)
+            sql.Append(Queries.FindAvailableRoomsHasRestaurant);
+
+        sql.Append(Queries.FindAvailableRoomsWhere);
 
         if (distanceToBeach > 0)
         {
@@ -137,14 +126,6 @@ class HolidayMaker(Database db)
             parameters.Add(("@distance_to_city", distanceToCity));
             sql.Append(Queries.FindAvailableRoomsDistanceToCity);
         }
-
-        if (hasPool)
-            sql.Append(Queries.FindAvailableRoomsHasPool);
-
-        if (hasRestaurant)
-            sql.Append(Queries.FindAvailableRoomsHasRestaurant);
-
-        sql.Append(Queries.FindAvailableRoomsWhere);
 
         switch (orderBy)
         {
@@ -171,9 +152,10 @@ class HolidayMaker(Database db)
                     new(reader.GetUInt64("hotel_id"),
                         reader.GetString("name"),
                         reader.GetString("location"),
-                        reader.GetUInt32("distance_to_beach"),
-                        reader.GetUInt32("distance_to_city"),
-                        reader.GetDecimal("rating")),
+                        reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
+                        reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
+                        reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating")),
+
                     // Room
                     new(reader.GetUInt64("room_id"),
                         reader.GetDecimal("price_per_night"),
@@ -185,20 +167,52 @@ class HolidayMaker(Database db)
         return rooms;
     }
 
-    public bool InsertBooking(Booking booking, Customer customer, Hotel hotel, Room room)
+    public bool InsertBooking(Booking booking, Customer customer, Room room)
     {
-        (string, object)[] parameters =
-        [
-            ("@customer_number", customer.CustomerNumber),
-            ("@room_id", room.Id),
-            ("@checkin_date", booking.CheckinDate),
-            ("@checkout_date", booking.CheckoutDate),
-            ("@total_price", booking.TotalPrice),
-            ("@cancelled", booking.Cancelled),
-            ("@number_of_occupants", booking.Occupants)
-        ];
+        using var transaction = _db.Connection.BeginTransaction();
+        bool retval = false;
 
-        return _db.ExecuteNonQuery(Queries.InsertBooking, parameters) == 1;
+        try
+        {
+            (string, object)[] parameters = [("@room_id", room.Id)];
+            using (var reader1 = _db.ExecuteReader(Queries.LockRoomForUpdate, parameters, transaction))
+            {
+                if (!reader1.Read())
+                    return false;
+            }
+
+            parameters =
+            [
+                ("@room_id", room.Id),
+                ("@checkin_date", booking.CheckinDate),
+                ("@checkout_date", booking.CheckoutDate)
+            ];
+            using (var reader2 = _db.ExecuteReader(Queries.CheckRoomAvailability, parameters, transaction))
+            {
+                if (reader2.Read())
+                    return false;
+            }
+
+            parameters =
+            [
+                ("@customer_number", customer.CustomerNumber),
+                ("@room_id", room.Id),
+                ("@checkin_date", booking.CheckinDate),
+                ("@checkout_date", booking.CheckoutDate),
+                ("@total_price", booking.TotalPrice),
+                ("@cancelled", booking.Cancelled),
+                ("@number_of_occupants", booking.Occupants)
+            ];
+            retval = _db.ExecuteNonQuery(Queries.InsertBooking, parameters, transaction) == 1;
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+
+        return retval;
     }
 
     public List<(Booking, Room, Hotel)> GetBookings(ulong customerNumber)
@@ -235,9 +249,9 @@ class HolidayMaker(Database db)
                     new(reader.GetUInt64("hotel_id"),
                         reader.GetString("name"),
                         reader.GetString("location"),
-                        reader.GetUInt32("distance_to_beach"),
-                        reader.GetUInt32("distance_to_city"),
-                        reader.GetDecimal("rating"))
+                        reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
+                        reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
+                        reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating"))
                 ));
         }
 
@@ -274,9 +288,9 @@ class HolidayMaker(Database db)
                 new(reader.GetUInt64("hotel_id"),
                     reader.GetString("name"),
                     reader.GetString("location"),
-                    reader.GetUInt32("distance_to_beach"),
-                    reader.GetUInt32("distance_to_city"),
-                    reader.GetDecimal("rating"))
+                    reader.IsDBNull(reader.GetOrdinal("distance_to_beach")) ? 0 : reader.GetUInt32("distance_to_beach"),
+                    reader.IsDBNull(reader.GetOrdinal("distance_to_city")) ? 0 : reader.GetUInt32("distance_to_city"),
+                    reader.IsDBNull(reader.GetOrdinal("rating")) ? 0m : reader.GetDecimal("rating"))
             );
             return booking;
         }
@@ -298,5 +312,17 @@ class HolidayMaker(Database db)
     {
         return _db.ExecuteNonQuery(
             Queries.CancelBooking, [("@booking_number", bookingNumber)]) == 1;
+    }
+
+    public bool IsEmailUnique(string email)
+    {
+        using var reader = _db.ExecuteReader(Queries.SelectDuplicateEmail, [("@email", email)]);
+        return !reader.Read();
+    }
+
+    public bool IsPhoneUnique(string phone)
+    {
+        using var reader = _db.ExecuteReader(Queries.SelectDuplicatePhone, [("@phone", phone)]);
+        return !reader.Read();
     }
 }

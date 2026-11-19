@@ -16,9 +16,4 @@ class Hotel
         DistanceToCity = distanceToCity;
         Rating = rating;
     }
-
-    public override string ToString()
-    {
-        return $"Name: {Name}, Location: {Location}, DistanceToBeach: {DistanceToBeach}m, DistanceToCity: {DistanceToCity}m, Rating: {Rating}";
-    }
 }

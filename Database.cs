@@ -1,22 +1,36 @@
 
 using MySqlConnector;
 
-class Database
+class Database : IDisposable
 {
-    private string _connectionString;
+    private const string _connectionString =
+    "Server=localhost;Database=holiday_maker;User ID=root;Password=dUckp0ndmYrS!;";
     public MySqlConnection Connection { get; }
 
-    public Database(string connectionString)
+    public void Dispose()
     {
-        _connectionString = connectionString;
+        Connection.Dispose();
+    }
+
+    public Database()
+    {
         Connection = new(_connectionString);
         Connection.Open();
     }
 
-    // Simplify select queries.
-    public MySqlDataReader ExecuteReader(string sql, (string, object)[] parameters)
+    public void EnsureOpen()
     {
-        using MySqlCommand command = new(sql, Connection);
+        if (Connection.State == System.Data.ConnectionState.Closed)
+            Connection.Open();
+    }
+
+    // Simplify select queries.
+    public MySqlDataReader ExecuteReader(
+        string sql,
+        (string, object)[] parameters,
+        MySqlTransaction? transaction = null)
+    {
+        using MySqlCommand command = new(sql, Connection, transaction);
 
         foreach ((string name, object value) in parameters)
             command.Parameters.AddWithValue(name, value);
@@ -26,9 +40,12 @@ class Database
     }
 
     // Simplify non-select queries.
-    public int ExecuteNonQuery(string sql, (string, object)[] parameters)
+    public int ExecuteNonQuery(
+        string sql,
+        (string, object)[] parameters,
+        MySqlTransaction? transaction = null)
     {
-        using MySqlCommand command = new(sql, Connection);
+        using MySqlCommand command = new(sql, Connection, transaction);
 
         foreach ((string name, object value) in parameters)
             command.Parameters.AddWithValue(name, value);

@@ -1,20 +1,51 @@
-﻿internal class Program
-{
-    private const string _connectionString =
-    "Server=localhost;Database=holiday_maker;User ID=root;Password=dUckp0ndmYrS!;";
-    private Database _db;
-    private HolidayMaker _hm;
-    private Customer? _currentCustomer = null;
+﻿using MySqlConnector;
 
-    public Program()
-    {
-        _db = new(_connectionString);
-        _hm = new(_db);
-    }
+internal class Program : IDisposable
+{
+    private HolidayMaker _hm;
+    private Database _db;
 
     private static void Main(string[] args)
     {
-        new Program().Run();
+        Program? program = null;
+        try
+        {
+            program = new();
+            program.Run();
+        }
+        catch (MySqlException ex)
+        {
+            ConsoleUI.ShowMessage(ex.Message);
+            switch (ex.ErrorCode)
+            {
+                case MySqlErrorCode.AccessDenied:
+                    ConsoleUI.ShowMessage("Could not log in to the database. Check user name/password.");
+                    break;
+
+                case MySqlErrorCode.UnknownDatabase:
+                    ConsoleUI.ShowMessage("Database 'holiday_maker' does not exist. Run holiday-maker-create.sql first.");
+                    break;
+
+                case MySqlErrorCode.UnableToConnectToHost:
+                    ConsoleUI.ShowMessage("Cannot reach the MySQL server. Is it running?");
+                    break;
+            }
+        }
+        finally
+        {
+            program?.Dispose();
+        }
+    }
+
+    public Program()
+    {
+        _db = new();
+        _hm = new(_db);
+    }
+
+    public void Dispose()
+    {
+        _db.Dispose();
     }
 
     public void Run()
@@ -32,32 +63,39 @@
                 ('X', "Exit")
             ]);
 
-            switch (input)
+            try
             {
-                case 'A':
-                    AddCustomer();
-                    break;
+                switch (input)
+                {
+                    case 'A':
+                        AddCustomer();
+                        break;
 
-                case 'B':
-                    AddBooking();
-                    break;
+                    case 'B':
+                        AddBooking();
+                        break;
 
-                case 'S':
-                    ShowBookings();
-                    break;
+                    case 'S':
+                        ShowBookings();
+                        break;
 
-                case 'C':
-                    // Implement ChangeBooking().
-                    ChangeBooking();
-                    break;
+                    case 'C':
+                        ChangeBooking();
+                        break;
 
-                case 'D':
-                    // Implement RemoveBooking().
-                    RemoveBooking();
-                    break;
+                    case 'D':
+                        RemoveBooking();
+                        break;
 
-                case 'X':
-                    return;
+                    case 'X':
+                        return;
+                }
+
+            }
+            catch (MySqlException ex)
+            {
+                ConsoleUI.ShowMessage($"Database error: {ex.Message}. The operation was cancelled.");
+                _db.EnsureOpen();
             }
         }
     }
@@ -84,6 +122,11 @@
             ConsoleUI.ShowMessage("Email cannot be omitted. Customer was not added.");
             return null;
         }
+        if (!_hm.IsEmailUnique(email))
+        {
+            ConsoleUI.ShowMessage("There is already a customer with that email. Customer was not added.");
+            return null;
+        }
 
         string? phone = ConsoleUI.GetStringInput("Enter customer phone: ");
         if (phone is null)
@@ -91,31 +134,38 @@
             ConsoleUI.ShowMessage("Phone cannot be omitted. Customer was not added.");
             return null;
         }
+        if (!_hm.IsPhoneUnique(phone))
+        {
+            ConsoleUI.ShowMessage("There is already a customer with that phone number. Customer was not added.");
+            return null;
+        }
 
-        if (_hm.InsertCustomer(name, address, email, phone))
-            ConsoleUI.ShowMessage($"Added customer '{name}'.");
-        else
-            ConsoleUI.ShowMessage($"Failed to add customer {name}.");
+        try
+        {
+            if (_hm.InsertCustomer(name, address, email, phone))
+            {
+                ConsoleUI.ShowMessage($"Added customer '{name}'.");
 
-        if (_hm.GetLastInsertedId(out ulong customerNumber))
-            return _hm.GetCustomer(customerNumber);
-
+                if (_hm.GetLastInsertedId(out ulong customerNumber))
+                    return _hm.GetCustomer(customerNumber);
+            }
+            else
+                ConsoleUI.ShowMessage($"Failed to add customer {name}.");
+        }
+        catch (MySqlException ex)
+        {
+            ConsoleUI.ShowMessage($"Failed to add customer. {ex.Message}");
+        }
         return null;
-    }
-
-    private void ShowCustomers()
-    {
-        ConsoleUI.ShowList("Customers", _hm.GetCustomers().Select(
-            customer => customer.ToString()).ToArray());
     }
 
     private void AddBooking()
     {
         string? input;
 
-        _currentCustomer = SelectCustomer();
+        Customer? customer = SelectCustomer();
 
-        if (_currentCustomer is null)
+        if (customer is null)
         {
             ConsoleUI.ShowMessage("No customer selected.");
             input = ConsoleUI.GetStringInput("Do you want to add a new customer? (Y/[N]): ");
@@ -123,9 +173,9 @@
             if (input is null || input.ToUpper()[0] != 'Y')
                 return;
 
-            _currentCustomer = AddCustomer();
+            customer = AddCustomer();
 
-            if (_currentCustomer is null)
+            if (customer is null)
             {
                 ConsoleUI.ShowMessage("No customer selected. No booking added.");
                 return;
@@ -149,7 +199,7 @@
         // Select number of people
         if (!byte.TryParse(ConsoleUI.GetStringInput(
             "How many people will you be [1]: "),
-            out byte occupants))
+            out byte occupants) || occupants < 1)
         {
             occupants = 1;
         }
@@ -165,6 +215,11 @@
             "Enter checkout date: "), out DateOnly checkoutDate))
         {
             ConsoleUI.ShowMessage("Invalid checkout date.");
+            return;
+        }
+        if (checkinDate < DateOnly.FromDateTime(DateTime.Now))
+        {
+            ConsoleUI.ShowMessage("Checkin date can not be in the past.");
             return;
         }
         if (checkoutDate <= checkinDate)
@@ -268,7 +323,7 @@
         Booking booking = new
         (
             0,
-            _currentCustomer.CustomerNumber,
+            customer.CustomerNumber,
             room.Id,
             checkinDate,
             checkoutDate,
@@ -277,13 +332,13 @@
             occupants
         );
 
-        if (_hm.InsertBooking(booking, _currentCustomer, hotel, room))
+        if (_hm.InsertBooking(booking, customer, room))
             ConsoleUI.ShowMessage(
-                @$"Added booking for {_currentCustomer.Name},
+                @$"Added booking for {customer.Name},
                 at {hotel.Name} in {hotel.Location}
                 from {checkinDate} to {checkoutDate}.");
         else
-            ConsoleUI.ShowMessage($"Failed to add booking for {_currentCustomer.Name}");
+            ConsoleUI.ShowMessage($"Failed to add booking for {customer.Name}");
     }
 
     private Customer? SelectCustomer()
@@ -308,18 +363,18 @@
         return customers[--index];
     }
 
-    private void ShowBookings()
+    private Customer? ShowBookings()
     {
-        _currentCustomer = SelectCustomer();
+        Customer? customer = SelectCustomer();
 
-        if (_currentCustomer is null)
+        if (customer is null)
         {
             ConsoleUI.ShowMessage("No customer selected.");
-            return;
+            return null;
         }
 
         List<(Booking booking, Room room, Hotel hotel)> bookings =
-        _hm.GetBookings(_currentCustomer.CustomerNumber);
+        _hm.GetBookings(customer.CustomerNumber);
 
         string title =
             "Booking number " +
@@ -344,15 +399,17 @@
             $"{b.booking.TotalPrice,10}").ToArray();
 
         ConsoleUI.ShowMessage(
-            $"Bookings for {_currentCustomer.Name}");
+            $"Bookings for {customer.Name}");
         ConsoleUI.ShowList(title, bookingRows);
+
+        return customer;
     }
 
     private void ChangeBooking()
     {
-        ShowBookings();
+        Customer? customer = ShowBookings();
 
-        if (_currentCustomer is null)
+        if (customer is null)
             return;
 
         if (!ulong.TryParse(
@@ -370,10 +427,16 @@
             return;
         }
 
+        if (booking.Value.booking.CustomerNumber != customer.CustomerNumber)
+        {
+            ConsoleUI.ShowMessage("Invalid booking number.");
+            return;
+        }
+
         if (!byte.TryParse(
             ConsoleUI.GetStringInput(
-                $"How many occupants will you be? ({booking?.booking.Occupants}) " +
-                $"(max {booking?.room.Capacity}) "),
+                $"How many occupants will you be? ({booking.Value.booking.Occupants}) " +
+                $"(max {booking.Value.room.Capacity}) "),
                 out byte occupants))
         {
             ConsoleUI.ShowMessage("Invalid number of occupants.");
@@ -386,7 +449,7 @@
             return;
         }
 
-        if (occupants > booking?.room.Capacity)
+        if (occupants > booking.Value.room.Capacity)
         {
             ConsoleUI.ShowMessage($"{occupants} exceeds the capacity for the room.");
             return;
@@ -401,9 +464,9 @@
 
     private void RemoveBooking()
     {
-        ShowBookings();
+        Customer? customer = ShowBookings();
 
-        if (_currentCustomer is null)
+        if (customer is null)
             return;
 
         if (!ulong.TryParse(
@@ -418,6 +481,12 @@
         if (booking is null)
         {
             ConsoleUI.ShowMessage($"There's no booking with number: {bookingNumber}.");
+            return;
+        }
+
+        if (booking.Value.booking.CustomerNumber != customer.CustomerNumber)
+        {
+            ConsoleUI.ShowMessage("Invalid booking number.");
             return;
         }
 
